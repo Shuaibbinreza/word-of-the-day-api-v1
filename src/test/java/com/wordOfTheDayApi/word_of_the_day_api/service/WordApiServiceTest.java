@@ -1,6 +1,10 @@
 package com.wordOfTheDayApi.word_of_the_day_api.service;
 
 import com.github.benmanes.caffeine.cache.Cache;
+import com.wordOfTheDayApi.word_of_the_day_api.model.dto.Def;
+import com.wordOfTheDayApi.word_of_the_day_api.model.dto.DefinitionDTO;
+import com.wordOfTheDayApi.word_of_the_day_api.model.dto.DefinitionEntry;
+import com.wordOfTheDayApi.word_of_the_day_api.model.dto.Meaning;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -14,6 +18,10 @@ import reactor.core.publisher.Mono;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -261,5 +269,306 @@ class WordApiServiceTest {
         });
 
         assertThat(exception.getMessage()).contains("Error fetching random word");
+    }
+
+    @Test
+    void fetchWordDefinition_shouldReturnDefinitionsWhenApiCallSucceeds() throws Exception {
+        // Given
+        String randomWordApiUrl = "https://api.randomword.com";
+        String dictionaryApiUrl = "https://api.dictionary.com";
+        String testWord = "example";
+
+        // Create test data
+        Def def1 = new Def("a representative form or pattern");
+        Def def2 = new Def("a typical instance");
+        List<Def> definitions1 = List.of(def1, def2);
+
+        Meaning meaning1 = new Meaning("noun", definitions1);
+
+        Def def3 = new Def("to show or illustrate by example");
+        List<Def> definitions2 = List.of(def3);
+
+        Meaning meaning2 = new Meaning("verb", definitions2);
+
+        List<Meaning> meanings = List.of(meaning1, meaning2);
+        DefinitionEntry entry = new DefinitionEntry(meanings);
+        DefinitionEntry[] entries = new DefinitionEntry[] { entry };
+
+        // Mock WebClient response chain
+        WebClient.RequestHeadersUriSpec requestHeadersUriSpec = mock(WebClient.RequestHeadersUriSpec.class);
+        WebClient.RequestHeadersSpec requestHeadersSpec = mock(WebClient.RequestHeadersSpec.class);
+        WebClient.ResponseSpec responseSpec = mock(WebClient.ResponseSpec.class);
+
+        when(dictionaryClient.get()).thenReturn(requestHeadersUriSpec);
+        when(requestHeadersUriSpec.uri(anyString(), anyString())).thenReturn(requestHeadersSpec);
+        when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.bodyToMono(DefinitionEntry[].class)).thenReturn(Mono.just(entries));
+
+        // Create service with mocked dependencies
+        wordApiService = new WordApiService(webClientBuilder, randomWordApiUrl, dictionaryApiUrl);
+
+        // When
+        List<DefinitionDTO> result = invokePrivateMethod(
+            wordApiService, 
+            "fetchWordDefinition", 
+            new Class[] { String.class }, 
+            testWord
+        );
+
+        // Then
+        assertThat(result).isNotNull();
+        assertThat(result).hasSize(3); // 2 noun definitions + 1 verb definition
+
+        // Verify the definitions are correctly mapped
+        assertThat(result).extracting("definition")
+            .containsExactlyInAnyOrder(
+                "a representative form or pattern", 
+                "a typical instance", 
+                "to show or illustrate by example"
+            );
+
+        // Verify the parts of speech are correctly mapped
+        assertThat(result).extracting("partOfSpeech")
+            .containsExactly("noun", "noun", "verb");
+    }
+
+    @Test
+    void fetchWordDefinition_shouldReturnEmptyListWhenApiReturnsNull() throws Exception {
+        // Given
+        String randomWordApiUrl = "https://api.randomword.com";
+        String dictionaryApiUrl = "https://api.dictionary.com";
+        String testWord = "nonexistentword";
+
+        // Mock WebClient response chain
+        WebClient.RequestHeadersUriSpec requestHeadersUriSpec = mock(WebClient.RequestHeadersUriSpec.class);
+        WebClient.RequestHeadersSpec requestHeadersSpec = mock(WebClient.RequestHeadersSpec.class);
+        WebClient.ResponseSpec responseSpec = mock(WebClient.ResponseSpec.class);
+
+        when(dictionaryClient.get()).thenReturn(requestHeadersUriSpec);
+        when(requestHeadersUriSpec.uri(anyString(), anyString())).thenReturn(requestHeadersSpec);
+        when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.bodyToMono(DefinitionEntry[].class)).thenReturn(Mono.justOrEmpty((DefinitionEntry[])null));
+
+        // Create service with mocked dependencies
+        wordApiService = new WordApiService(webClientBuilder, randomWordApiUrl, dictionaryApiUrl);
+
+        // When
+        List<DefinitionDTO> result = invokePrivateMethod(
+            wordApiService, 
+            "fetchWordDefinition", 
+            new Class[] { String.class }, 
+            testWord
+        );
+
+        // Then
+        assertThat(result).isNotNull();
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    void fetchWordDefinition_shouldReturnEmptyListWhenApiReturnsEmptyArray() throws Exception {
+        // Given
+        String randomWordApiUrl = "https://api.randomword.com";
+        String dictionaryApiUrl = "https://api.dictionary.com";
+        String testWord = "nonexistentword";
+
+        // Mock WebClient response chain
+        WebClient.RequestHeadersUriSpec requestHeadersUriSpec = mock(WebClient.RequestHeadersUriSpec.class);
+        WebClient.RequestHeadersSpec requestHeadersSpec = mock(WebClient.RequestHeadersSpec.class);
+        WebClient.ResponseSpec responseSpec = mock(WebClient.ResponseSpec.class);
+
+        when(dictionaryClient.get()).thenReturn(requestHeadersUriSpec);
+        when(requestHeadersUriSpec.uri(anyString(), anyString())).thenReturn(requestHeadersSpec);
+        when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.bodyToMono(DefinitionEntry[].class)).thenReturn(Mono.just(new DefinitionEntry[0]));
+
+        // Create service with mocked dependencies
+        wordApiService = new WordApiService(webClientBuilder, randomWordApiUrl, dictionaryApiUrl);
+
+        // When
+        List<DefinitionDTO> result = invokePrivateMethod(
+            wordApiService, 
+            "fetchWordDefinition", 
+            new Class[] { String.class }, 
+            testWord
+        );
+
+        // Then
+        assertThat(result).isNotNull();
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    void fetchWordDefinition_shouldThrowRuntimeExceptionWhenWebClientResponseExceptionOccurs() throws Exception {
+        // Given
+        String randomWordApiUrl = "https://api.randomword.com";
+        String dictionaryApiUrl = "https://api.dictionary.com";
+        String testWord = "example";
+
+        // Mock WebClient response chain
+        WebClient.RequestHeadersUriSpec requestHeadersUriSpec = mock(WebClient.RequestHeadersUriSpec.class);
+        WebClient.RequestHeadersSpec requestHeadersSpec = mock(WebClient.RequestHeadersSpec.class);
+        WebClient.ResponseSpec responseSpec = mock(WebClient.ResponseSpec.class);
+
+        when(dictionaryClient.get()).thenReturn(requestHeadersUriSpec);
+        when(requestHeadersUriSpec.uri(anyString(), anyString())).thenReturn(requestHeadersSpec);
+        when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.bodyToMono(DefinitionEntry[].class)).thenReturn(Mono.error(
+            new WebClientResponseException(404, "Not Found", null, null, null)));
+
+        // Create service with mocked dependencies
+        wordApiService = new WordApiService(webClientBuilder, randomWordApiUrl, dictionaryApiUrl);
+
+        // When & Then
+        RuntimeException exception = assertThrows(RuntimeException.class, () -> {
+            invokePrivateMethod(wordApiService, "fetchWordDefinition", new Class[] { String.class }, testWord);
+        });
+
+        assertThat(exception.getMessage()).contains("Dictionary API call failed for word '" + testWord + "'");
+    }
+
+    @Test
+    void fetchWordDefinition_shouldThrowRuntimeExceptionWhenGenericExceptionOccurs() throws Exception {
+        // Given
+        String randomWordApiUrl = "https://api.randomword.com";
+        String dictionaryApiUrl = "https://api.dictionary.com";
+        String testWord = "example";
+
+        // Mock WebClient response chain
+        WebClient.RequestHeadersUriSpec requestHeadersUriSpec = mock(WebClient.RequestHeadersUriSpec.class);
+        WebClient.RequestHeadersSpec requestHeadersSpec = mock(WebClient.RequestHeadersSpec.class);
+        WebClient.ResponseSpec responseSpec = mock(WebClient.ResponseSpec.class);
+
+        when(dictionaryClient.get()).thenReturn(requestHeadersUriSpec);
+        when(requestHeadersUriSpec.uri(anyString(), anyString())).thenReturn(requestHeadersSpec);
+        when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.bodyToMono(DefinitionEntry[].class)).thenReturn(Mono.error(
+            new IllegalStateException("Generic error")));
+
+        // Create service with mocked dependencies
+        wordApiService = new WordApiService(webClientBuilder, randomWordApiUrl, dictionaryApiUrl);
+
+        // When & Then
+        RuntimeException exception = assertThrows(RuntimeException.class, () -> {
+            invokePrivateMethod(wordApiService, "fetchWordDefinition", new Class[] { String.class }, testWord);
+        });
+
+        assertThat(exception.getMessage()).contains("Error fetching definition for word '" + testWord + "'");
+    }
+
+    @Test
+    void getRandomWordWithDefinition_shouldReturnWordAndDefinitionsWhenCacheIsEmpty() throws Exception {
+        // Given
+        String randomWordApiUrl = "https://api.randomword.com";
+        String dictionaryApiUrl = "https://api.dictionary.com";
+        String expectedWord = "example";
+
+        // Create test data for definitions
+        Def def1 = new Def("a representative form or pattern");
+        List<Def> definitions1 = List.of(def1);
+        Meaning meaning1 = new Meaning("noun", definitions1);
+        List<Meaning> meanings = List.of(meaning1);
+        DefinitionEntry entry = new DefinitionEntry(meanings);
+        DefinitionEntry[] entries = new DefinitionEntry[] { entry };
+
+        // Set up mocks for API calls
+
+        // Mock WebClient for fetchRandomWord
+        WebClient.RequestHeadersUriSpec randomWordRequestHeadersUriSpec = mock(WebClient.RequestHeadersUriSpec.class);
+        WebClient.RequestHeadersSpec randomWordRequestHeadersSpec = mock(WebClient.RequestHeadersSpec.class);
+        WebClient.ResponseSpec randomWordResponseSpec = mock(WebClient.ResponseSpec.class);
+
+        when(randomWordClient.get()).thenReturn(randomWordRequestHeadersUriSpec);
+        when(randomWordRequestHeadersUriSpec.uri(any(java.util.function.Function.class))).thenReturn(randomWordRequestHeadersSpec);
+        when(randomWordRequestHeadersSpec.retrieve()).thenReturn(randomWordResponseSpec);
+        when(randomWordResponseSpec.bodyToMono(String[].class)).thenReturn(Mono.just(new String[]{expectedWord}));
+
+        // Mock WebClient for fetchWordDefinition
+        WebClient.RequestHeadersUriSpec dictionaryRequestHeadersUriSpec = mock(WebClient.RequestHeadersUriSpec.class);
+        WebClient.RequestHeadersSpec dictionaryRequestHeadersSpec = mock(WebClient.RequestHeadersSpec.class);
+        WebClient.ResponseSpec dictionaryResponseSpec = mock(WebClient.ResponseSpec.class);
+
+        when(dictionaryClient.get()).thenReturn(dictionaryRequestHeadersUriSpec);
+        when(dictionaryRequestHeadersUriSpec.uri(anyString(), anyString())).thenReturn(dictionaryRequestHeadersSpec);
+        when(dictionaryRequestHeadersSpec.retrieve()).thenReturn(dictionaryResponseSpec);
+        when(dictionaryResponseSpec.bodyToMono(DefinitionEntry[].class)).thenReturn(Mono.just(entries));
+
+        // Create service with mocked dependencies
+        wordApiService = new WordApiService(webClientBuilder, randomWordApiUrl, dictionaryApiUrl);
+
+        // When
+        Map<String, Object> result = wordApiService.getRandomWordWithDefinition();
+
+        // Then
+        assertThat(result).isNotNull();
+        assertThat(result.get("word")).isEqualTo(expectedWord);
+        assertThat(result.get("definitions")).isInstanceOf(List.class);
+
+        @SuppressWarnings("unchecked")
+        List<DefinitionDTO> definitions = (List<DefinitionDTO>) result.get("definitions");
+        assertThat(definitions).hasSize(1);
+        assertThat(definitions.get(0).definition()).isEqualTo("a representative form or pattern");
+        assertThat(definitions.get(0).partOfSpeech()).isEqualTo("noun");
+    }
+
+    @Test
+    void getRandomWordWithDefinition_shouldReturnCachedResultWhenAvailable() throws Exception {
+        // Given
+        String randomWordApiUrl = "https://api.randomword.com";
+        String dictionaryApiUrl = "https://api.dictionary.com";
+        String cachedWord = "cached";
+        List<DefinitionDTO> cachedDefinitions = List.of(new DefinitionDTO("cached definition", "noun"));
+        Map<String, Object> cachedResult = Map.of(
+            "word", cachedWord,
+            "definitions", cachedDefinitions
+        );
+
+        // Create service with mocked dependencies
+        wordApiService = new WordApiService(webClientBuilder, randomWordApiUrl, dictionaryApiUrl);
+
+        // Manually put a value in the cache
+        Cache<String, Object> cache = getPrivateField(wordApiService, "cache");
+        cache.put("wordOfTheDay", cachedResult);
+
+        // When
+        Map<String, Object> result = wordApiService.getRandomWordWithDefinition();
+
+        // Then
+        assertThat(result).isNotNull();
+        assertThat(result).isSameAs(cachedResult);
+        assertThat(result.get("word")).isEqualTo(cachedWord);
+
+        @SuppressWarnings("unchecked")
+        List<DefinitionDTO> definitions = (List<DefinitionDTO>) result.get("definitions");
+        assertThat(definitions).isSameAs(cachedDefinitions);
+    }
+
+    @Test
+    void clearWordOfTheDayCache_shouldInvalidateCache() throws Exception {
+        // Given
+        String randomWordApiUrl = "https://api.randomword.com";
+        String dictionaryApiUrl = "https://api.dictionary.com";
+        String cachedWord = "cached";
+        List<DefinitionDTO> cachedDefinitions = List.of(new DefinitionDTO("cached definition", "noun"));
+        Map<String, Object> cachedResult = Map.of(
+            "word", cachedWord,
+            "definitions", cachedDefinitions
+        );
+
+        // Create service with mocked dependencies
+        wordApiService = new WordApiService(webClientBuilder, randomWordApiUrl, dictionaryApiUrl);
+
+        // Manually put a value in the cache
+        Cache<String, Object> cache = getPrivateField(wordApiService, "cache");
+        cache.put("wordOfTheDay", cachedResult);
+
+        // Verify cache has the value
+        assertThat(cache.getIfPresent("wordOfTheDay")).isNotNull();
+
+        // When
+        wordApiService.clearWordOfTheDayCache();
+
+        // Then
+        assertThat(cache.getIfPresent("wordOfTheDay")).isNull();
     }
 }
