@@ -35,7 +35,7 @@ Run the generated JAR with:
 java -jar target/word-of-the-day-api-0.0.1-SNAPSHOT.jar
 ```
 
-By default, the app will start on **[http://localhost:8080](http://localhost:8080)**.
+By default, the app will start on **[http://localhost:8080](http://localhost:8081)**.
 
 ---
 
@@ -73,6 +73,8 @@ curl "http://localhost:8081/wordOfTheDay/refresh"
 }
 ```
 
+### Caution
+# This application is calling 3rd party apis. So if you find an Internal Server Error, please refresh the page.
 ---
 
 ## ⚡ Run on a Custom Port
