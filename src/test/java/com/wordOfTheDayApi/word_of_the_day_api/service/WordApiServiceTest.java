@@ -9,12 +9,18 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.mockito.Mockito.lenient;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
+import reactor.core.publisher.Mono;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -160,5 +166,100 @@ class WordApiServiceTest {
         Field field = object.getClass().getDeclaredField(fieldName);
         field.setAccessible(true);
         return (T) field.get(object);
+    }
+
+    @SuppressWarnings("unchecked")
+    private <T> T invokePrivateMethod(Object object, String methodName, Class<?>[] paramTypes, Object... args) throws Exception {
+        Method method = object.getClass().getDeclaredMethod(methodName, paramTypes);
+        method.setAccessible(true);
+        try {
+            return (T) method.invoke(object, args);
+        } catch (java.lang.reflect.InvocationTargetException e) {
+            // Unwrap the InvocationTargetException to get the actual exception
+            throw (Exception) e.getCause();
+        }
+    }
+
+    @Test
+    void fetchRandomWord_shouldReturnWordWhenApiCallSucceeds() throws Exception {
+        // Given
+        String randomWordApiUrl = "https://api.randomword.com";
+        String dictionaryApiUrl = "https://api.dictionary.com";
+        String expectedWord = "example";
+
+        // Mock WebClient response chain
+        WebClient.RequestHeadersUriSpec requestHeadersUriSpec = mock(WebClient.RequestHeadersUriSpec.class);
+        WebClient.RequestHeadersSpec requestHeadersSpec = mock(WebClient.RequestHeadersSpec.class);
+        WebClient.ResponseSpec responseSpec = mock(WebClient.ResponseSpec.class);
+
+        when(randomWordClient.get()).thenReturn(requestHeadersUriSpec);
+        when(requestHeadersUriSpec.uri(any(java.util.function.Function.class))).thenReturn(requestHeadersSpec);
+        when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.bodyToMono(String[].class)).thenReturn(Mono.just(new String[]{expectedWord}));
+
+        // Create service with mocked dependencies
+        wordApiService = new WordApiService(webClientBuilder, randomWordApiUrl, dictionaryApiUrl);
+
+        // When
+        String result = invokePrivateMethod(wordApiService, "fetchRandomWord", new Class[]{});
+
+        // Then
+        assertThat(result).isEqualTo(expectedWord);
+    }
+
+    @Test
+    void fetchRandomWord_shouldThrowRuntimeExceptionWhenWebClientResponseExceptionOccurs() throws Exception {
+        // Given
+        String randomWordApiUrl = "https://api.randomword.com";
+        String dictionaryApiUrl = "https://api.dictionary.com";
+
+        // Mock WebClient response chain
+        WebClient.RequestHeadersUriSpec requestHeadersUriSpec = mock(WebClient.RequestHeadersUriSpec.class);
+        WebClient.RequestHeadersSpec requestHeadersSpec = mock(WebClient.RequestHeadersSpec.class);
+        WebClient.ResponseSpec responseSpec = mock(WebClient.ResponseSpec.class);
+
+        when(randomWordClient.get()).thenReturn(requestHeadersUriSpec);
+        when(requestHeadersUriSpec.uri(any(java.util.function.Function.class))).thenReturn(requestHeadersSpec);
+        when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.bodyToMono(String[].class)).thenReturn(Mono.error(
+            new WebClientResponseException(404, "Not Found", null, null, null)));
+
+        // Create service with mocked dependencies
+        wordApiService = new WordApiService(webClientBuilder, randomWordApiUrl, dictionaryApiUrl);
+
+        // When & Then
+        RuntimeException exception = assertThrows(RuntimeException.class, () -> {
+            invokePrivateMethod(wordApiService, "fetchRandomWord", new Class[]{});
+        });
+
+        assertThat(exception.getMessage()).contains("Random Word API call failed");
+    }
+
+    @Test
+    void fetchRandomWord_shouldThrowRuntimeExceptionWhenGenericExceptionOccurs() throws Exception {
+        // Given
+        String randomWordApiUrl = "https://api.randomword.com";
+        String dictionaryApiUrl = "https://api.dictionary.com";
+
+        // Mock WebClient response chain
+        WebClient.RequestHeadersUriSpec requestHeadersUriSpec = mock(WebClient.RequestHeadersUriSpec.class);
+        WebClient.RequestHeadersSpec requestHeadersSpec = mock(WebClient.RequestHeadersSpec.class);
+        WebClient.ResponseSpec responseSpec = mock(WebClient.ResponseSpec.class);
+
+        when(randomWordClient.get()).thenReturn(requestHeadersUriSpec);
+        when(requestHeadersUriSpec.uri(any(java.util.function.Function.class))).thenReturn(requestHeadersSpec);
+        when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.bodyToMono(String[].class)).thenReturn(Mono.error(
+            new IllegalStateException("Generic error")));
+
+        // Create service with mocked dependencies
+        wordApiService = new WordApiService(webClientBuilder, randomWordApiUrl, dictionaryApiUrl);
+
+        // When & Then
+        RuntimeException exception = assertThrows(RuntimeException.class, () -> {
+            invokePrivateMethod(wordApiService, "fetchRandomWord", new Class[]{});
+        });
+
+        assertThat(exception.getMessage()).contains("Error fetching random word");
     }
 }
