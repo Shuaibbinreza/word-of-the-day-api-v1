@@ -16,13 +16,13 @@ This is a simple Spring Boot project that calls the **[Random Word API](https://
 From the project root (where `pom.xml` is located), run:
 
 ```bash
-mvn clean package
+./mvnw clean package
 ```
 
 This will generate a JAR file in the `target/` directory:
 
 ```
-target/word-of-the-day-api-0.0.1-SNAPSHOT.jar
+java -jar target/word-of-the-day-api-0.0.1-SNAPSHOT.jar
 ```
 
 ---
