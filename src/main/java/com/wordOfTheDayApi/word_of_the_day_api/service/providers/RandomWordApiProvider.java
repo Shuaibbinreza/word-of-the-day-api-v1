@@ -5,8 +5,9 @@ import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.beans.factory.annotation.Value;
 
 import com.wordOfTheDayApi.word_of_the_day_api.exception.custom.WebClientResponseException;
+import com.wordOfTheDayApi.word_of_the_day_api.model.dto.RandomWordRequestDTO;
 
-@Service
+@Service("randomWordApiProvider")
 public class RandomWordApiProvider implements WordProvider {
 
     private final WebClient client;
@@ -16,17 +17,25 @@ public class RandomWordApiProvider implements WordProvider {
         this.client = builder.baseUrl(randomWordApiUrl).build();
     }
 
-    @Override
-    public String getRandomWord() {
+    // Accept a request DTO
+    public String getRandomWord(RandomWordRequestDTO request) {
+        int number = request.number(); // currently always 1
+
         try {
             return client.get()
-                    .uri(uriBuilder -> uriBuilder.queryParam("words", 1).build())
+                    .uri(uriBuilder -> uriBuilder.queryParam("words", number).build())
                     .retrieve()
                     .bodyToMono(String[].class)
                     .map(words -> words[0])
                     .block();
-        } catch (WebClientResponseException ex) {
+        } catch (org.springframework.web.reactive.function.client.WebClientResponseException ex) {
             throw new RuntimeException("Random Word API failed: " + ex.getMessage());
         }
+    }
+
+    // Keep default method for backward compatibility
+    @Override
+    public String getRandomWord() {
+        return getRandomWord(new RandomWordRequestDTO(1));
     }
 }
