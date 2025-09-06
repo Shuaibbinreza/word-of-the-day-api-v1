@@ -10,8 +10,10 @@ import java.util.concurrent.TimeUnit;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
-import com.wordOfTheDayApi.word_of_the_day_api.model.dto.DefinitionDTO;
-import com.wordOfTheDayApi.word_of_the_day_api.model.dto.RandomWordRequestDTO;
+import com.wordOfTheDayApi.word_of_the_day_api.model.dto.WordOfTheDayResponseDTO;
+import com.wordOfTheDayApi.word_of_the_day_api.model.dto.definitionDto.DefinitionDTO;
+import com.wordOfTheDayApi.word_of_the_day_api.model.dto.definitionDto.DictionaryRequestDTO;
+import com.wordOfTheDayApi.word_of_the_day_api.model.dto.randomWord.RandomWordRequestDTO;
 import com.wordOfTheDayApi.word_of_the_day_api.service.providers.DictionaryProvider;
 import com.wordOfTheDayApi.word_of_the_day_api.service.providers.RandomWordApiProvider;
 import com.wordOfTheDayApi.word_of_the_day_api.service.providers.WordProvider;
@@ -34,24 +36,22 @@ public class WordOfTheDayService {
     }
 
     @SuppressWarnings("unchecked")
-    public Map<String, Object> getWordOfTheDay() {
+    public WordOfTheDayResponseDTO getWordOfTheDay() {
         String cacheKey = "wordOfTheDay";
 
         // Check cache first
         Object cached = cache.getIfPresent(cacheKey);
-        if (cached != null) return (Map<String, Object>) cached;
+        if (cached != null) return (WordOfTheDayResponseDTO) cached;
 
         // Get random word from the qualified provider
         String word = wordProvider.getRandomWord();
 
         // Get definitions
-        List<DefinitionDTO> definitions = dictionaryProvider.getDefinitions(word);
+        DictionaryRequestDTO dictRequest = new DictionaryRequestDTO(word);
+        List<DefinitionDTO> definitions = dictionaryProvider.getDefinitions(dictRequest);
 
-        // Build result map
-        Map<String, Object> result = Map.of(
-                "word", word,
-                "definitions", definitions
-        );
+        // Build response DTO
+        WordOfTheDayResponseDTO result = new WordOfTheDayResponseDTO(word, definitions);
 
         // Cache it
         cache.put(cacheKey, result);

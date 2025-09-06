@@ -2,8 +2,9 @@ package com.wordOfTheDayApi.word_of_the_day_api.service;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
-import com.wordOfTheDayApi.word_of_the_day_api.model.dto.DefinitionDTO;
-import com.wordOfTheDayApi.word_of_the_day_api.model.dto.DefinitionEntry;
+import com.wordOfTheDayApi.word_of_the_day_api.model.dto.definitionDto.DefinitionDTO;
+import com.wordOfTheDayApi.word_of_the_day_api.model.dto.definitionDto.DefinitionEntry;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;

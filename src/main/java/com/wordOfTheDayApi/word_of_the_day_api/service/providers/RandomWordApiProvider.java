@@ -2,10 +2,10 @@ package com.wordOfTheDayApi.word_of_the_day_api.service.providers;
 
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
-import org.springframework.beans.factory.annotation.Value;
 
-import com.wordOfTheDayApi.word_of_the_day_api.exception.custom.WebClientResponseException;
-import com.wordOfTheDayApi.word_of_the_day_api.model.dto.RandomWordRequestDTO;
+import com.wordOfTheDayApi.word_of_the_day_api.model.dto.randomWord.RandomWordRequestDTO;
+
+import org.springframework.beans.factory.annotation.Value;
 
 @Service("randomWordApiProvider")
 public class RandomWordApiProvider implements WordProvider {

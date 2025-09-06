@@ -9,11 +9,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import com.wordOfTheDayApi.word_of_the_day_api.exception.custom.WebClientResponseException;
-import com.wordOfTheDayApi.word_of_the_day_api.model.dto.DefinitionDTO;
-import com.wordOfTheDayApi.word_of_the_day_api.model.dto.DefinitionEntry;
+import com.wordOfTheDayApi.word_of_the_day_api.model.dto.definitionDto.DefinitionDTO;
+import com.wordOfTheDayApi.word_of_the_day_api.model.dto.definitionDto.DefinitionEntry;
+import com.wordOfTheDayApi.word_of_the_day_api.model.dto.definitionDto.DictionaryRequestDTO;
+
 import org.springframework.beans.factory.annotation.Value;
 
-@Service
+@Service("dictionaryApiProvider")
 public class DictionaryApiProvider implements DictionaryProvider {
 
     private final WebClient client;
@@ -24,7 +26,9 @@ public class DictionaryApiProvider implements DictionaryProvider {
     }
 
     @Override
-    public List<DefinitionDTO> getDefinitions(String word) {
+    public List<DefinitionDTO> getDefinitions(DictionaryRequestDTO request) {
+        String word = request.word();
+
         try {
             DefinitionEntry[] entries = client.get()
                     .uri("/en/{word}", word)
@@ -32,15 +36,18 @@ public class DictionaryApiProvider implements DictionaryProvider {
                     .bodyToMono(DefinitionEntry[].class)
                     .block();
 
-            if (entries == null || entries.length == 0) return Collections.emptyList();
+            if (entries == null || entries.length == 0) {
+                return Collections.emptyList();
+            }
 
             return Arrays.stream(entries)
                     .flatMap(entry -> entry.meanings().stream())
-                    .flatMap(m -> m.definitions().stream()
-                            .map(d -> new DefinitionDTO(d.definition(), m.partOfSpeech())))
+                    .flatMap(meaning -> meaning.definitions().stream()
+                            .map(def -> new DefinitionDTO(def.definition(), meaning.partOfSpeech())))
                     .collect(Collectors.toList());
+
         } catch (WebClientResponseException ex) {
-            throw new RuntimeException("Dictionary API failed: " + ex.getMessage());
+            throw new RuntimeException("Dictionary API call failed for word '" + word + "': " + ex.getMessage());
         }
     }
 }
