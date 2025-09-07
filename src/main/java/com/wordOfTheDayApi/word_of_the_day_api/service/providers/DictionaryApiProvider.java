@@ -15,16 +15,34 @@ import com.wordOfTheDayApi.word_of_the_day_api.model.dto.definitionDto.Dictionar
 
 import org.springframework.beans.factory.annotation.Value;
 
+/**
+ * Provider responsible for retrieving word definitions from an external dictionary API
+ * and mapping them into lightweight DefinitionDTO objects.
+ */
 @Service("dictionaryApiProvider")
 public class DictionaryApiProvider implements DictionaryProvider {
 
     private final WebClient client;
 
+    /**
+     * Constructs a DictionaryApiProvider with the given WebClient builder and base URL.
+     *
+     * @param builder            WebClient builder used to create the client instance.
+     * @param dictionaryApiUrl   Base URL of the external dictionary API (e.g., https://api.dictionaryapi.dev/api/v2/entries).
+     */
     public DictionaryApiProvider(WebClient.Builder builder,
                                  @Value("${external.dictionary-api.base-url}") String dictionaryApiUrl) {
         this.client = builder.baseUrl(dictionaryApiUrl).build();
     }
 
+    /**
+     * Calls the dictionary API to retrieve definitions for the given word and maps
+     * the result into a flat list of DefinitionDTO.
+     *
+     * @param request contains the word to look up
+     * @return a list of DefinitionDTOs (possibly empty if no entries are returned)
+     * @throws RuntimeException if the external API call fails
+     */
     @Override
     public List<DefinitionDTO> getDefinitions(DictionaryRequestDTO request) {
         String word = request.word();
